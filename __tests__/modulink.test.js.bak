@@ -135,7 +135,7 @@ describe('Modulink', () => {
       const handler = jest.fn();
       const topic = 'test-topic';
       modu._consume(topic, handler);
-      expect(consoleSpy).toHaveBeenCalledWith('Message trigger not implemented for topic: test-topic');
+      expect(consoleSpy).toHaveBeenCalledWith('Message consumption not yet implemented');
       consoleSpy.mockRestore();
     });
   });

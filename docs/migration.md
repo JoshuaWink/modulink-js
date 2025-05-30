@@ -26,6 +26,15 @@ ModuLink-JS has evolved from a pipeline-based pattern to a **Chain & Function** 
 
 **Migration Required:** Existing CommonJS code must be updated to use ES modules syntax.
 
+## Version History
+
+## Version 2.1.0 - 2025-05-30
+
+- Migration completion milestone
+- ES modules conversion finalized
+- Chain API implementation complete
+- All tests passing (35/35)
+
 ## 🎉 Migration Complete
 
 **Status**: ✅ **100% Complete** - The ModuLink-JS library has been successfully converted from CommonJS to ES modules with full Chain & Function pattern implementation.

@@ -2,18 +2,18 @@
 
 import express from 'express';
 import { Modulink } from '../modulink/modulink.js';
-import * as business from '../business_logic.js';
+import * as business from './business_logic.js';
 
 const app = express();
 app.use(express.json());
 
-const modu = new Modulink(app);
+const modulink = new Modulink(app);
 
 // Middleware for logging
-modu.use(Modulink.logging());
+modulink.use(Modulink.logging());
 
 // Chain: increment then double, then respond
-const pipeline = modu.chain(
+const pipeline = modulink.chain(
   business.increment,
   business.double,
   business.respond
@@ -30,7 +30,7 @@ async function processCLICommand(ctx) {
 }
 
 // HTTP GET endpoint
-modu.when.http('/api/value', ['GET'], async ctx => {
+modulink.when.http('/api/value', ['GET'], async ctx => {
   let value = ctx.value;
   if (ctx.query && ctx.query.value !== undefined) {
     value = ctx.query.value;
@@ -51,7 +51,7 @@ modu.when.http('/api/value', ['GET'], async ctx => {
 });
 
 // HTTP POST endpoint
-modu.when.http('/api/process', ['POST'], async ctx => {
+modulink.when.http('/api/process', ['POST'], async ctx => {
   const initialValue = ctx.value !== undefined ? parseInt(ctx.value, 10) : 10;
   if (isNaN(initialValue)) {
     console.error('[POST /api/process] Invalid initial value provided:', ctx.value);
@@ -68,14 +68,14 @@ modu.when.http('/api/process', ['POST'], async ctx => {
 // ES modules don't have require.main, use import.meta.url check instead
 if (import.meta.url === `file://${process.argv[1]}`) {
   // Cron job: logs processed value every minute
-  modu.when.cron('* * * * *', async () => {
+  modulink.when.cron('* * * * *', async () => {
     let currentCtx = { value: 5 };
     console.log('[CRON] Initial context for scheduled job:', currentCtx);
     const result = await pipeline(currentCtx);
     console.log('[CRON] Processed value:', result);
   });
 
-  modu.when.cli('process-cli', async ctx => {
+  modulink.when.cli('process-cli', async ctx => {
     const result = await processCLICommand(ctx);
     console.log(JSON.stringify(result));
     if (process.env.NODE_ENV !== 'test') {
@@ -95,4 +95,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { app, modu, pipeline, processCLICommand };
+export { app, modulink, pipeline, processCLICommand };

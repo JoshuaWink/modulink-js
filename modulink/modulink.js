@@ -26,6 +26,43 @@ import cron from 'node-cron';
 import { Command } from 'commander';
 
 /**
+ * Default trigger providers that implement the standard interfaces.
+ * Users can override these by passing custom trigger providers in the constructor options.
+ */
+const DefaultTriggers = {
+  cron: {
+    schedule: (expr, handler) => {
+      return cron.schedule(expr, async () => {
+        await handler({});
+      });
+    }
+  },
+  message: {
+    consume: (topic, handler) => {
+      console.warn(`Message trigger not implemented for topic: ${topic}`);
+    }
+  },
+  cli: {
+    command: (name, handler) => {
+      const program = new Command();
+      program
+        .command(name)
+        .requiredOption('-d, --data <json>', 'JSON payload for context')
+        .action(async options => {
+          const ctx = JSON.parse(options.data);
+          const result = await handler(ctx);
+          console.log(JSON.stringify(result, null, 2));
+        });
+      
+      const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+      if (isMainModule || process.env.NODE_ENV !== 'test') {
+        program.parse(process.argv);
+      }
+    }
+  }
+};
+
+/**
  * Configuration Ledger - Central configuration storage for chain management
  */
 class ConfigurationLedger {
@@ -420,12 +457,19 @@ class Modulink {
    * const app = express();
    * const modu = new Modulink(app);
    */
-  constructor(app) {
+  constructor(app, options = {}) {
     this.app = app;
     this.middleware = [];
     this.pipelines = {}; // Legacy named pipelines (deprecated)
     this.config = { throwErrors: false };
     this.cronTasks = []; // Track cron jobs for cleanup
+    
+    // Initialize trigger providers with defaults, allowing custom overrides
+    this.triggers = {
+      cron: options.triggers?.cron || DefaultTriggers.cron,
+      message: options.triggers?.message || DefaultTriggers.message,
+      cli: options.triggers?.cli || DefaultTriggers.cli
+    };
     
     // Initialize configuration ledger and chain factory
     this.ledger = new ConfigurationLedger();
@@ -465,6 +509,30 @@ class Modulink {
    */
   use(mw) {
     this.middleware.push(mw);
+  }
+
+  /**
+   * Execute a chain of steps with middleware applied.
+   * @param {Function[]} steps - Array of functions to execute in sequence.
+   * @param {Object} initialCtx - Initial context object.
+   * @returns {Promise<Object>} Final context after all steps.
+   * @example
+   * const result = await modu.chain([step1, step2], { data: 'test' });
+   */
+  async chain(steps, initialCtx = {}) {
+    let ctx = initialCtx;
+
+    // Apply global middleware first
+    for (const mw of this.middleware) {
+      ctx = await mw(ctx);
+    }
+
+    // Execute the chain steps
+    for (const step of steps) {
+      ctx = await step(ctx);
+    }
+
+    return ctx;
   }
 
   /**
@@ -868,41 +936,34 @@ class Modulink {
   }
 
   /**
-   * Internal: Schedules a cron job using node-cron.
+   * Internal: Schedules a cron job using the configured cron trigger provider.
    * @param {string} expr - Cron expression.
    * @param {Function} handler - Handler function.
    * @private
    */
   _schedule(expr, handler) {
-    const task = cron.schedule(expr, async () => {
-      await handler({});
-    }, {
-      scheduled: false // Don't start automatically in test environment
-    });
+    const task = this.triggers.cron.schedule(expr, handler);
     
-    // Track the task for cleanup
-    this.cronTasks.push(task);
-    
-    // Only start the task if not in test environment
-    if (process.env.NODE_ENV !== 'test') {
-      task.start();
+    // Track the task for cleanup if it supports destroy
+    if (task && typeof task.destroy === 'function') {
+      this.cronTasks.push(task);
     }
     
     return task;
   }
 
   /**
-   * Internal: Placeholder for message consumption (not implemented).
+   * Internal: Message consumption using the configured message trigger provider.
    * @param {string} topic - Message topic.
    * @param {Function} handler - Handler function.
    * @private
    */
   _consume(topic, handler) {
-    console.warn('Message consumption not yet implemented');
+    this.triggers.message.consume(topic, handler);
   }
 
   /**
-   * Internal: Registers a CLI command using commander.
+   * Internal: Registers a CLI command using the configured CLI trigger provider.
    * @param {string} name - Command name.
    * @param {Function} handler - Handler function.
    * @private
@@ -910,18 +971,7 @@ class Modulink {
    * // Run from CLI: node app.js run -d '{"foo":42}'
    */
   _command(name, handler) {
-    const program = new Command();
-    program
-      .command(name)
-      .requiredOption('-d, --data <json>', 'JSON payload for context')
-      .action(async options => {
-        const ctx = JSON.parse(options.data);
-        const result = await handler(ctx);
-        console.log(JSON.stringify(result, null, 2));
-      });
-    if (import.meta.url === `file://${process.argv[1]}` && process.env.NODE_ENV !== 'test') {
-       program.parse(process.argv);
-    }
+    this.triggers.cli.command(name, handler);
   }
 
   /**

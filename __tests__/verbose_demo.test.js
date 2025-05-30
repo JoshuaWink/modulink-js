@@ -77,10 +77,10 @@ describe('Verbose Demo App Tests', () => {
 
     test('should handle context without initial value for chain (e.g. business logic defaults)', async () => {
       // This test depends on how business.increment handles undefined ctx.value
-      // Based on business_logic.js, it defaults to { value: 1 }
+      // Based on example/business_logic.js, it defaults to { value: 1 }
       const ctx = {};
       const result = await chain(ctx);
-      // business_logic.js: increment sets ctx.value = (ctx.value || 0) + 1, so undefined -> 1, then double: 2
+      // example/business_logic.js: increment sets ctx.value = (ctx.value || 0) + 1, so undefined -> 1, then double: 2
       expect(result).toEqual({ result: 2 }); // (undefined -> 0 + 1) * 2 = 2
     });
   });

@@ -1,6 +1,6 @@
 // __tests__/business_logic.test.js
 
-import { entry, increment, double, respond } from '../business_logic.js';
+import { entry, increment, double, respond } from '../example/business_logic.js';
 
 describe('Business Logic Tests', () => {
   describe('entry', () => {
