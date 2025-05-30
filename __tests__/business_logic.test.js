@@ -1,6 +1,6 @@
 // __tests__/business_logic.test.js
 
-const { entry, increment, double, respond } = require('../business_logic');
+import { entry, increment, double, respond } from '../business_logic.js';
 
 describe('Business Logic Tests', () => {
   describe('entry', () => {

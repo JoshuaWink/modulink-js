@@ -1,7 +1,7 @@
 // example/modulink_setup.js
-const app = require('./server');
-const { Modulink } = require('modulink-js');
-const bl = require('../business_logic');
+import app from './server.js';
+import { Modulink } from '../index.js';
+import * as bl from '../business_logic.js';
 
 const modu = new Modulink(app);
 
@@ -12,7 +12,7 @@ modu.use(ctx => {
 });
 
 // Chain
-const chain = modu.link([bl.entry, bl.increment, bl.double, bl.respond]);
+const chain = modu.chain(bl.entry, bl.increment, bl.double, bl.respond);
 
 // HTTP
 modu.when.http('/api/process', ['POST'], chain);
@@ -23,4 +23,4 @@ modu.when.cron('* * * * *', chain);
 // CLI
 modu.when.cli('process', chain);
 
-module.exports = modu;
+export default modu;

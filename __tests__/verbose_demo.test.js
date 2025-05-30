@@ -1,7 +1,8 @@
 // __tests__/verbose_demo.test.js
 
-const request = require('supertest');
-const { app, pipeline, processCLICommand } = require('../example/verbose_demo');
+import { jest } from '@jest/globals';
+import request from 'supertest';
+import { app, pipeline as chain, processCLICommand } from '../example/verbose_demo.js';
 
 // Mock console.log and console.error to prevent test output clutter
 // and allow for assertions on logged messages if needed.
@@ -67,18 +68,18 @@ describe('Verbose Demo App Tests', () => {
     });
   });
 
-  describe('Pipeline Direct Test', () => {
+  describe('Chain Direct Test', () => {
     test('should process context correctly when called directly (e.g., value=3)', async () => {
       const ctx = { value: 3 };
-      const result = await pipeline(ctx); // pipeline is exported from verbose_demo.js
+      const result = await chain(ctx); // chain is exported from verbose_demo.js
       expect(result).toEqual({ result: 8 }); // (3+1)*2 = 8
     });
 
-    test('should handle context without initial value for pipeline (e.g. business logic defaults)', async () => {
+    test('should handle context without initial value for chain (e.g. business logic defaults)', async () => {
       // This test depends on how business.increment handles undefined ctx.value
       // Based on business_logic.js, it defaults to { value: 1 }
       const ctx = {};
-      const result = await pipeline(ctx);
+      const result = await chain(ctx);
       // business_logic.js: increment sets ctx.value = (ctx.value || 0) + 1, so undefined -> 1, then double: 2
       expect(result).toEqual({ result: 2 }); // (undefined -> 0 + 1) * 2 = 2
     });
@@ -101,13 +102,13 @@ describe('Verbose Demo App Tests', () => {
 
   // Note: Testing cron jobs directly via Jest is complex as it involves time-based scheduling.
   // A common approach is to test the handler function of the cron job directly,
-  // which is effectively what the 'Pipeline Direct Test' does if the cron handler uses that pipeline.
-  // For `modu.when.cron('* * * * *', async () => { ... pipeline({value: 5}) ... })`
-  // we can test `pipeline({value: 5})`.
-  describe('Cron Job Handler Logic (via pipeline)', () => {
+  // which is effectively what the 'Chain Direct Test' does if the cron handler uses that chain.
+  // For `modu.when.cron('* * * * *', async () => { ... chain({value: 5}) ... })`
+  // we can test `chain({value: 5})`.
+  describe('Cron Job Handler Logic (via chain)', () => {
     test('should correctly process the logic intended for the cron job (e.g. value=5)', async () => {
         const cronContext = { value: 5 }; // This is the mocked value used in verbose_demo.js cron
-        const result = await pipeline(cronContext);
+        const result = await chain(cronContext);
         expect(result).toEqual({ result: 12 }); // (5+1)*2 = 12
     });
   });

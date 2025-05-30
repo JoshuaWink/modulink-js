@@ -1,4 +1,5 @@
 /**
  * ModuLink JS Library Entry Point
  */
-module.exports = require('./modulink/Modulink').Modulink;
+import { Modulink } from './modulink/modulink.js';
+export { Modulink };

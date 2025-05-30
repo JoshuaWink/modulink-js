@@ -1,6 +1,6 @@
 // example/app.js
-require('modulink-js');
-require('./modulink_setup');
-const app = require('./server');
+import '../index.js';
+import './modulink_setup.js';
+import app from './server.js';
 
 app.listen(3000, () => console.log('Server running on port 3000'));

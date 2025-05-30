@@ -1,8 +1,8 @@
 // example/verbose_demo.js
 
-const express = require('express');
-const { Modulink } = require('../modulink/modulink');
-const business = require('../business_logic');
+import express from 'express';
+import { Modulink } from '../modulink/modulink.js';
+import * as business from '../business_logic.js';
 
 const app = express();
 app.use(express.json());
@@ -12,8 +12,8 @@ const modu = new Modulink(app);
 // Middleware for logging
 modu.use(Modulink.logging());
 
-// Pipeline: increment then double, then respond
-const pipeline = modu.pipeline(
+// Chain: increment then double, then respond
+const pipeline = modu.chain(
   business.increment,
   business.double,
   business.respond
@@ -64,26 +64,26 @@ modu.when.http('/api/process', ['POST'], async ctx => {
   return result;
 });
 
-// Cron job: logs processed value every minute
-modu.when.cron('* * * * *', async () => {
-  let currentCtx = { value: 5 };
-  console.log('[CRON] Initial context for scheduled job:', currentCtx);
-  const result = await pipeline(currentCtx);
-  console.log('[CRON] Processed value:', result);
-});
+// CLI command and Cron job: only register when running directly
+// ES modules don't have require.main, use import.meta.url check instead
+if (import.meta.url === `file://${process.argv[1]}`) {
+  // Cron job: logs processed value every minute
+  modu.when.cron('* * * * *', async () => {
+    let currentCtx = { value: 5 };
+    console.log('[CRON] Initial context for scheduled job:', currentCtx);
+    const result = await pipeline(currentCtx);
+    console.log('[CRON] Processed value:', result);
+  });
 
-// CLI command: process a value from CLI
-modu.when.cli('process-cli', async ctx => {
-  const result = await processCLICommand(ctx);
-  console.log(JSON.stringify(result));
-  if (process.env.NODE_ENV !== 'test') {
-    process.exit(0);
-  }
-  return result;
-});
-
-// Start server only if running directly
-if (require.main === module) {
+  modu.when.cli('process-cli', async ctx => {
+    const result = await processCLICommand(ctx);
+    console.log(JSON.stringify(result));
+    if (process.env.NODE_ENV !== 'test') {
+      process.exit(0);
+    }
+    return result;
+  });
+  
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
     console.log(`Verbose demo app running on http://localhost:${PORT}`);
@@ -95,4 +95,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, modu, pipeline, processCLICommand };
+export { app, modu, pipeline, processCLICommand };

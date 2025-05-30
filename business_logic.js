@@ -38,4 +38,4 @@ function respond(ctx) {
   return { result: ctx.value };
 }
 
-module.exports = { entry, increment, double, respond };
+export { entry, increment, double, respond };
