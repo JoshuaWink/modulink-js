@@ -4,6 +4,24 @@
   "description": "ModuLink JavaScript Modulink Library",
   "main": "index.js",
   "type": "module",
+  "keywords": [
+    "modulink",
+    "javascript",
+    "modules",
+    "communication",
+    "event-driven",
+    "messaging"
+  ],
+  "author": "Joshua Wink <joshua@orchestrate.solutions>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JoshuaWink/modulink-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JoshuaWink/modulink-js/issues"
+  },
+  "homepage": "https://github.com/JoshuaWink/modulink-js#readme",
   "scripts": {
     "start": "node example/app.js",
     "test": "NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest",
