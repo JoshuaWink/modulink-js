@@ -2,7 +2,7 @@
 
 A minimal JavaScript library for building modular applications with unified triggers for HTTP, cron jobs, and CLI commands.
 
-> **Version 2.0.0**: ES modules with modern function chain pattern. All tests passing (35/35). Jest hanging issues resolved.
+> **Version 2.1.0**: ES modules with modern function chain pattern. All tests passing (35/35). Jest hanging issues resolved.
 
 ## Installation
 
@@ -128,7 +128,7 @@ afterAll(() => {
 });
 ```
 
-## Modular Triggers (v2.0.0)
+## Modular Triggers (v2.1.0)
 
 ModuLink now supports pluggable trigger providers, allowing you to use any scheduling, messaging, or CLI library while maintaining convenient defaults.
 
@@ -197,4 +197,4 @@ For migration from v1.x, see [docs/migration.md](./docs/migration.md).
 
 ## License
 
-MIT License
+Apache-2.0 @ Orchestrate LLC
