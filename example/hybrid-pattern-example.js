@@ -7,7 +7,7 @@
  * - Feature Flags: Environment-specific behavior control
  * - Function Registry: Reusable chain functions (links)
  * 
- * Functions are the links of the chain, middleware are the fittings between links.
+ * Functions are the links of the chain, middleware are the observers between links.
  */
 
 import express from 'express';

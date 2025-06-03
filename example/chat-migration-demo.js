@@ -1,11 +1,11 @@
 /**
  * Practical Migration Example: AI Chat UI Chat Module
  * 
- * This demonstrates migrating the existing chat module from the legacy
- * registration pattern to the new hybrid configuration ledger + factory pattern.
+ * This demonstrates the ModuLink system for chat functionality
+ * using chain() for chain creation and context-based processing.
  */
 
-import { Modulink } from '../custom_modules/modulink_js/modulink/modulink.js';
+import { createModulink, createHttpContext, chain, when, errorHandler } from '../index.js';
 import express from 'express';
 
 // Mock function imports for demo purposes
@@ -517,18 +517,18 @@ async function runMigrationDemo() {
   const app = express();
   app.use(express.json());
   
-  // Initialize both patterns for comparison
-  const modulinkLegacy = new Modulink(app);
-  const modulinkHybrid = new Modulink(app);
+  // Initialize ModuLink instances for comparison
+  const modulinkLegacy = createModulink();
+  const modulinkHybrid = createModulink();
   
-  // Set up legacy pattern
+  // Set up legacy pattern (now using ModuLink)
   initializeChatModuleLegacy(app, modulinkLegacy);
   
   // Set up hybrid pattern
   initializeChatModuleHybrid(app, modulinkHybrid);
   
   // Test legacy pattern
-  console.log('\n=== Testing Legacy Pattern ===');
+  console.log('\n=== Testing ModuLink Pattern ===');
   try {
     const legacyResult = await modulinkLegacy.execute('createChatSession', {
       req: { body: {} },

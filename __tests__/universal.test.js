@@ -113,6 +113,7 @@ describe('ModuLink System', () => {
     });
   });
 
+  // compose() functionality removed - using chain() instead
   describe('Chain-Based Composition', () => {
     test('should chain sync links', async () => {
       const link1 = (ctx) => ({ ...ctx, step1: true });
@@ -152,7 +153,7 @@ describe('ModuLink System', () => {
       expect(result.async).toBe(true);
     });
 
-    test('should stop composition on error', async () => {
+    test('should stop chain execution on error', async () => {
       const link1 = (ctx) => ({ ...ctx, step1: true });
       const link2 = (ctx) => { throw new Error('Link 2 failed'); };
       const link3 = (ctx) => ({ ...ctx, step3: true });
@@ -429,6 +430,255 @@ describe('ModuLink System', () => {
       const result3 = await cachedChain({ userId: 456 });
       expect(result3.result).toBe('execution-2');
       expect(executionCount).toBe(2);
+    });
+  });
+
+  describe('Chain Function (New API)', () => {
+    test('should execute links in sequence', async () => {
+      const link1 = (ctx) => ({ ...ctx, step: 1 });
+      const link2 = (ctx) => ({ ...ctx, step: 2 });
+      const link3 = (ctx) => ({ ...ctx, step: 3 });
+      
+      const chainFn = chain(link1, link2, link3);
+      const result = await chainFn({ initial: true });
+      
+      expect(result.initial).toBe(true);
+      expect(result.step).toBe(3); // Last step wins
+    });
+
+    test('should handle async links', async () => {
+      const asyncLink1 = async (ctx) => ({ ...ctx, async1: true });
+      const syncLink = (ctx) => ({ ...ctx, sync: true });
+      const asyncLink2 = async (ctx) => ({ ...ctx, async2: true });
+      
+      const chainFn = chain(asyncLink1, syncLink, asyncLink2);
+      const result = await chainFn({ initial: true });
+      
+      expect(result.initial).toBe(true);
+      expect(result.async1).toBe(true);
+      expect(result.sync).toBe(true);
+      expect(result.async2).toBe(true);
+    });
+
+    test('should support middleware with .use()', async () => {
+      const link1 = (ctx) => ({ ...ctx, link1: true });
+      const link2 = (ctx) => ({ ...ctx, link2: true });
+      
+      const middleware1 = (ctx) => ({ ...ctx, middleware1: true });
+      const middleware2 = (ctx) => ({ ...ctx, middleware2: true });
+      
+      const chainFn = chain(link1, link2)
+        .use(middleware1)
+        .use(middleware2);
+      
+      const result = await chainFn({ initial: true });
+      
+      expect(result.initial).toBe(true);
+      expect(result.link1).toBe(true);
+      expect(result.link2).toBe(true);
+      expect(result.middleware1).toBe(true);
+      expect(result.middleware2).toBe(true);
+    });
+
+    test('should run middleware after each link (O(n*m) behavior)', async () => {
+      const executionOrder = [];
+      
+      const link1 = (ctx) => {
+        executionOrder.push('link1');
+        return { ...ctx, link1: true };
+      };
+      const link2 = (ctx) => {
+        executionOrder.push('link2');
+        return { ...ctx, link2: true };
+      };
+      
+      const middleware1 = (ctx) => {
+        executionOrder.push('middleware1');
+        return { ...ctx, middleware1: true };
+      };
+      const middleware2 = (ctx) => {
+        executionOrder.push('middleware2');
+        return { ...ctx, middleware2: true };
+      };
+      
+      const chainFn = chain(link1, link2)
+        .use(middleware1, middleware2);
+      
+      await chainFn({ initial: true });
+      
+      // Expected order: link1, middleware1, middleware2, link2, middleware1, middleware2
+      expect(executionOrder).toEqual([
+        'link1', 'middleware1', 'middleware2',
+        'link2', 'middleware1', 'middleware2'
+      ]);
+    });
+
+    test('should support chaining multiple .use() calls', async () => {
+      const link = (ctx) => ({ ...ctx, processed: true });
+      
+      const chainFn = chain(link)
+        .use((ctx) => ({ ...ctx, first: true }))
+        .use((ctx) => ({ ...ctx, second: true }))
+        .use((ctx) => ({ ...ctx, third: true }));
+      
+      const result = await chainFn({ initial: true });
+      
+      expect(result.processed).toBe(true);
+      expect(result.first).toBe(true);
+      expect(result.second).toBe(true);
+      expect(result.third).toBe(true);
+    });
+
+    test('should handle errors in links', async () => {
+      const link1 = (ctx) => ({ ...ctx, step1: true });
+      const errorLink = () => {
+        throw new Error('Link failed');
+      };
+      const link3 = (ctx) => ({ ...ctx, step3: true });
+      
+      const chainFn = chain(link1, errorLink, link3);
+      const result = await chainFn({ initial: true });
+      
+      expect(result.initial).toBe(true);
+      expect(result.step1).toBe(true);
+      expect(result.error).toBeDefined();
+      expect(result.error.message).toBe('Link failed');
+      expect(result.step3).toBeUndefined(); // Should not execute after error
+    });
+
+    test('should handle errors in middleware', async () => {
+      const link1 = (ctx) => ({ ...ctx, step1: true });
+      const link2 = (ctx) => ({ ...ctx, step2: true });
+      
+      const goodMiddleware = (ctx) => ({ ...ctx, good: true });
+      const errorMiddleware = () => {
+        throw new Error('Middleware failed');
+      };
+      
+      const chainFn = chain(link1, link2)
+        .use(goodMiddleware, errorMiddleware);
+      
+      const result = await chainFn({ initial: true });
+      
+      expect(result.initial).toBe(true);
+      expect(result.step1).toBe(true);
+      expect(result.good).toBe(true);
+      expect(result.error).toBeDefined();
+      expect(result.error.message).toBe('Middleware failed');
+      expect(result.step2).toBeUndefined(); // Should not execute after middleware error
+    });
+
+    test('should stop middleware execution on error', async () => {
+      const executionOrder = [];
+      
+      const link1 = (ctx) => {
+        executionOrder.push('link1');
+        return { ...ctx, step1: true };
+      };
+      const link2 = (ctx) => {
+        executionOrder.push('link2');
+        return { ...ctx, step2: true };
+      };
+      
+      const middleware1 = (ctx) => {
+        executionOrder.push('middleware1');
+        return { ...ctx, middleware1: true };
+      };
+      const errorMiddleware = () => {
+        executionOrder.push('errorMiddleware');
+        throw new Error('Middleware error');
+      };
+      const middleware3 = (ctx) => {
+        executionOrder.push('middleware3');
+        return { ...ctx, middleware3: true };
+      };
+      
+      const chainFn = chain(link1, link2)
+        .use(middleware1, errorMiddleware, middleware3);
+      
+      await chainFn({ initial: true });
+      
+      // Should stop at errorMiddleware and not continue to middleware3 or link2
+      expect(executionOrder).toEqual([
+        'link1', 'middleware1', 'errorMiddleware'
+      ]);
+    });
+
+    test('should handle async middleware', async () => {
+      const link = (ctx) => ({ ...ctx, processed: true });
+      
+      const asyncMiddleware1 = async (ctx) => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        return { ...ctx, async1: true };
+      };
+      const syncMiddleware = (ctx) => ({ ...ctx, sync: true });
+      const asyncMiddleware2 = async (ctx) => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        return { ...ctx, async2: true };
+      };
+      
+      const chainFn = chain(link)
+        .use(asyncMiddleware1, syncMiddleware, asyncMiddleware2);
+      
+      const result = await chainFn({ initial: true });
+      
+      expect(result.processed).toBe(true);
+      expect(result.async1).toBe(true);
+      expect(result.sync).toBe(true);
+      expect(result.async2).toBe(true);
+    });
+
+    test('should work with empty chain', async () => {
+      const chainFn = chain();
+      const result = await chainFn({ initial: true });
+      
+      expect(result.initial).toBe(true);
+    });
+
+    test('should work with single link', async () => {
+      const singleLink = (ctx) => ({ ...ctx, single: true });
+      const chainFn = chain(singleLink);
+      const result = await chainFn({ initial: true });
+      
+      expect(result.initial).toBe(true);
+      expect(result.single).toBe(true);
+    });
+
+    test('should preserve context across links and middleware', async () => {
+      const link1 = (ctx) => ({ ...ctx, count: (ctx.count || 0) + 1 });
+      const link2 = (ctx) => ({ ...ctx, count: ctx.count + 10 });
+      
+      const middleware = (ctx) => ({ ...ctx, count: ctx.count * 2 });
+      
+      const chainFn = chain(link1, link2).use(middleware);
+      const result = await chainFn({ initial: true });
+      
+      // Expected: 0 -> 1 (link1) -> 2 (middleware) -> 12 (link2) -> 24 (middleware)
+      expect(result.count).toBe(24);
+    });
+
+    test('should support future onInput/onOutput methods (warning test)', async () => {
+      const link = (ctx) => ({ ...ctx, processed: true });
+      const middleware = (ctx) => ({ ...ctx, middleware: true });
+      
+      // Capture console.warn
+      const originalWarn = console.warn;
+      const warnMessages = [];
+      console.warn = (message) => warnMessages.push(message);
+      
+      try {
+        const chainFn = chain(link)
+          .use.onInput(middleware)
+          .use.onOutput(middleware);
+        
+        const result = await chainFn({ initial: true });
+        
+        expect(result.processed).toBe(true);
+        expect(result.middleware).toBe(true);
+        expect(warnMessages).toContain('use.onInput() not yet implemented, using default onOutput behavior');
+      } finally {
+        console.warn = originalWarn;
+      }
     });
   });
 

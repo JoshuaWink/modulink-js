@@ -1,19 +1,16 @@
 // example/verbose_demo.js
 
 import express from 'express';
-import { Modulink } from '../modulink/modulink.js';
+import { createModulink, createHttpContext, createCliContext, chain, logging, catchErrors } from '../index.js';
 import * as business from './business_logic.js';
 
 const app = express();
 app.use(express.json());
 
-const modulink = new Modulink(app);
-
-// Middleware for logging
-modulink.use(Modulink.logging());
+const modulink = createModulink();
 
 // Chain: increment then double, then respond
-const pipeline = modulink.chain(
+const pipeline = chain(
   business.increment,
   business.double,
   business.respond
@@ -25,8 +22,9 @@ async function processCLICommand(ctx) {
   if (isNaN(initialValue)) {
     return { error: 'Invalid initial value in --data. Must be a number.' };
   }
-  let currentCtx = { value: initialValue };
-  return await pipeline(currentCtx);
+  const cliCtx = createCliContext({ value: initialValue });
+  const chainFn = chain(logging(), pipeline);
+  return await chainFn(cliCtx);
 }
 
 // HTTP GET endpoint

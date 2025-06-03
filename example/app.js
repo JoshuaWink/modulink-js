@@ -3,7 +3,7 @@
 
 import express from 'express';
 import cors from 'cors';
-import { Modulink } from '../index.js';
+import { createModulink, createHttpContext, chain, catchErrors } from '../index.js';
 import * as bl from './business_logic.js';
 
 // Create Express app
@@ -12,21 +12,27 @@ app.use(cors());
 app.use(express.json());
 
 // Create ModuLink instance
-const modulink = new Modulink(app);
+const modulink = createModulink();
 
-// Add middleware
-modulink.use(ctx => {
-  console.log(`${ctx.req?.method || 'N/A'} ${ctx.req?.path || 'N/A'}`);
-  return ctx;
+// Create processing chain using chain
+const processChain = chain(
+  bl.entry,
+  bl.increment,
+  bl.double,
+  bl.respond
+);
+
+// Create context middleware
+app.use((req, res, next) => {
+  req.ctx = createHttpContext(req, res);
+  next();
 });
 
-// Create processing chain
-const processChain = modulink.chain(bl.entry, bl.increment, bl.double, bl.respond);
-
-// Register triggers
-modulink.when.http('/api/process', ['POST'], processChain);
-modulink.when.cron('0 * * * *', processChain); // Every hour
-modulink.when.cli('process', processChain);
+// Register HTTP routes
+app.post('/api/process', async (req, res) => {
+  const chain = catchErrors(processChain);
+  await chain(req.ctx);
+});
 
 // Start server
 const PORT = process.env.PORT || 3000;

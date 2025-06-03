@@ -1,27 +1,28 @@
 /**
- * ModuLink-JS Hybrid Configuration Ledger + Factory Pattern Example
+ * ModuLink-JS Pattern Example
  * 
- * This example demonstrates the new hybrid pattern that combines:
- * - Configuration Ledger: Central storage for chain configurations
- * - Factory Pattern: Dynamic chain creation with caching and lazy loading
- * - Feature Flags: Environment-specific behavior control
- * - Function Registry: Reusable chain functions (links)
+ * This example demonstrates the ModuLink system:
+ * - Function Composition: Chaining links using chain()
+ * - Context-based Processing: Using typed contexts for different triggers
+ * - Core Types: Ctx, Link, Chain, Trigger, Middleware
+ * - Error Handling: Using catchErrors utility
+ * - Conditional Execution: Using when() for flow control
  * 
- * Functions are the links of the chain, middleware are the fittings between links.
+ * Functions are the links of the chain, composition creates the pipeline.
  */
 
 import express from 'express';
-import { Modulink } from '../modulink/modulink.js';
+import { createModulink, createHttpContext, chain, when, errorHandler, validate } from '../index.js';
 
 const app = express();
-const modu = new Modulink(app);
+const modu = createModulink();
 
 // ============================================================================
-// 1. REGISTER REUSABLE FUNCTIONS (CHAIN LINKS)
+// 1. DEFINE REUSABLE FUNCTIONS (CHAIN LINKS)
 // ============================================================================
 
 // Authentication functions
-modu.registerFunction('validateToken', (params = {}) => async (ctx) => {
+const validateToken = (params = {}) => async (ctx) => {
   const token = ctx.headers?.authorization?.replace('Bearer ', '');
   if (!token) {
     ctx.error = { message: 'No token provided', code: 401 };
@@ -37,9 +38,9 @@ modu.registerFunction('validateToken', (params = {}) => async (ctx) => {
   ctx.user = { id: 123, name: 'John Doe', role: 'user' };
   ctx.authenticated = true;
   return ctx;
-});
+};
 
-modu.registerFunction('requireRole', (params = {}) => async (ctx) => {
+const requireRole = (params = {}) => async (ctx) => {
   if (!ctx.user) {
     ctx.error = { message: 'Authentication required', code: 401 };
     return ctx;
@@ -51,10 +52,10 @@ modu.registerFunction('requireRole', (params = {}) => async (ctx) => {
   }
   
   return ctx;
-});
+};
 
 // Data processing functions
-modu.registerFunction('validateInput', (params = {}) => async (ctx) => {
+const validateInput = (params = {}) => async (ctx) => {
   const { requiredFields = [] } = params;
   
   for (const field of requiredFields) {
@@ -66,9 +67,9 @@ modu.registerFunction('validateInput', (params = {}) => async (ctx) => {
   
   ctx.validatedInput = ctx.body;
   return ctx;
-});
+};
 
-modu.registerFunction('processData', (params = {}) => async (ctx) => {
+const processData = (params = {}) => async (ctx) => {
   const { operation = 'default' } = params;
   
   // Simulate data processing
@@ -83,9 +84,9 @@ modu.registerFunction('processData', (params = {}) => async (ctx) => {
   }
   
   return ctx;
-});
+};
 
-modu.registerFunction('saveToDatabase', (params = {}) => async (ctx) => {
+const saveToDatabase = (params = {}) => async (ctx) => {
   const { table = 'default' } = params;
   
   // Simulate database save
@@ -97,10 +98,10 @@ modu.registerFunction('saveToDatabase', (params = {}) => async (ctx) => {
   };
   
   return ctx;
-});
+};
 
 // Response functions
-modu.registerFunction('sendResponse', (params = {}) => async (ctx) => {
+const sendResponse = (params = {}) => async (ctx) => {
   if (ctx.error) {
     ctx.res.status(ctx.error.code || 500).json({
       error: ctx.error.message,
@@ -115,262 +116,125 @@ modu.registerFunction('sendResponse', (params = {}) => async (ctx) => {
   }
   
   return ctx;
+};
+
+// ============================================================================
+// 2. CREATE CHAINS USING CHAIN()
+// ============================================================================
+
+// Basic CRUD chain with authentication
+const authenticatedCrudChain = chain(
+  validateToken({ strict: true }),
+  requireRole({ role: 'user' }),
+  validateInput({ requiredFields: ['name'] }),
+  processData({ operation: 'transform' }),
+  saveToDatabase({ table: 'users' }),
+  sendResponse()
+);
+
+// Public read-only chain
+const publicReadChain = chain(
+  validateInput({ requiredFields: ['id'] }),
+  processData({ operation: 'default' }),
+  sendResponse()
+);
+
+// Admin-only chain with extra validation
+const adminChain = chain(
+  validateToken({ strict: true }),
+  requireRole({ role: 'admin' }),
+  validateInput({ requiredFields: ['data', 'action'] }),
+  when(
+    (ctx) => ctx.body.action === 'delete',
+    chain(
+      (ctx) => {
+        ctx.deleteConfirmed = true;
+        return ctx;
+      },
+      saveToDatabase({ table: 'audit_log' })
+    )
+  ),
+  processData({ operation: 'transform' }),
+  saveToDatabase({ table: 'admin_actions' }),
+  sendResponse()
+);
+
+// ============================================================================
+// 3. DEFINE HTTP ROUTES WITH ERROR HANDLING
+// ============================================================================
+
+// Middleware to create HTTP context
+app.use(express.json());
+app.use((req, res, next) => {
+  req.ctx = createHttpContext(req, res);
+  next();
+});
+
+// POST /api/users - Create user (authenticated)
+app.post('/api/users', async (req, res) => {
+  const chain = authenticatedCrudChain.use(errorHandler());
+  await chain(req.ctx);
+});
+
+// GET /api/data/:id - Public read
+app.get('/api/data/:id', async (req, res) => {
+  req.ctx.body = { id: req.params.id };
+  const chain = publicReadChain.use(errorHandler());
+  await chain(req.ctx);
+});
+
+// POST /api/admin - Admin actions
+app.post('/api/admin', async (req, res) => {
+  const chain = adminChain.use(errorHandler());
+  await chain(req.ctx);
 });
 
 // ============================================================================
-// 2. CONFIGURE CHAIN TEMPLATES
+// 4. ADVANCED PATTERNS WITH MODULINK
 // ============================================================================
 
-// Basic authentication chain
-modu.configureChain('basicAuth', {
-  version: '1.0.0',
-  description: 'Basic token-based authentication',
-  errorHandling: 'continue',
-  links: [
-    { type: 'function', name: 'validateToken', params: { strict: false } }
-  ]
-});
+// Conditional processing based on feature flags
+const featureFlagChain = chain(
+  validateToken(),
+  when(
+    (ctx) => process.env.FEATURE_ENHANCED_PROCESSING === 'true',
+    chain(
+      processData({ operation: 'transform' }),
+      (ctx) => {
+        ctx.enhanced = true;
+        return ctx;
+      }
+    ),
+    processData({ operation: 'default' })
+  ),
+  saveToDatabase(),
+  sendResponse()
+);
 
-// Strict authentication chain
-modu.configureChain('strictAuth', {
-  version: '1.0.0',
-  description: 'Strict authentication with role validation',
-  errorHandling: 'stop',
-  links: [
-    { type: 'function', name: 'validateToken', params: { strict: true } },
-    { type: 'function', name: 'requireRole', params: { role: 'admin' } }
-  ]
-});
-
-// Data processing chain
-modu.configureChain('processUserData', {
-  version: '1.0.0',
-  description: 'Process and save user data',
-  errorHandling: 'continue',
-  links: [
-    { 
-      type: 'function', 
-      name: 'validateInput', 
-      params: { requiredFields: ['name', 'email'] } 
-    },
-    { 
-      type: 'function', 
-      name: 'processData', 
-      params: { operation: 'transform' } 
-    },
-    { 
-      type: 'function', 
-      name: 'saveToDatabase', 
-      params: { table: 'users' } 
-    }
-  ]
-});
-
-// Complete API endpoint chain
-modu.configureChain('userApiEndpoint', {
-  version: '1.0.0',
-  description: 'Complete user API endpoint with auth and data processing',
-  errorHandling: 'continue',
-  links: [
-    { type: 'function', name: 'validateToken', params: { strict: true } },
-    { 
-      type: 'function', 
-      name: 'validateInput', 
-      params: { requiredFields: ['name', 'email'] } 
-    },
-    { 
-      type: 'function', 
-      name: 'processData', 
-      params: { operation: 'transform' } 
-    },
-    { 
-      type: 'function', 
-      name: 'saveToDatabase', 
-      params: { table: 'users' } 
-    },
-    { type: 'function', name: 'sendResponse' }
-  ]
+// Route with feature flags
+app.post('/api/enhanced', async (req, res) => {
+  const chain = featureFlagChain.use(errorHandler());
+  await chain(req.ctx);
 });
 
 // ============================================================================
-// 3. SET FEATURE FLAGS
-// ============================================================================
-
-modu.setFeatureFlag('strictValidation', true, { environment: 'production' });
-modu.setFeatureFlag('detailedLogging', true, { environment: 'development' });
-modu.setFeatureFlag('betaFeatures', false);
-
-// ============================================================================
-// 4. ENVIRONMENT-SPECIFIC CONFIGURATIONS
-// ============================================================================
-
-modu.setEnvironmentConfig('development', {
-  logLevel: 'debug',
-  cacheEnabled: false,
-  strictMode: false
-});
-
-modu.setEnvironmentConfig('production', {
-  logLevel: 'error',
-  cacheEnabled: true,
-  strictMode: true
-});
-
-// ============================================================================
-// 5. REGISTER HTTP ENDPOINTS USING CONFIGURED PIPELINES
-// ============================================================================
-
-// Basic user endpoint with dynamic chain selection
-modu.when.http('/api/users', ['POST'], async (ctx) => {
-  // Choose chain based on feature flags and environment
-  const isProd = process.env.NODE_ENV === 'production';
-  const useStrictAuth = modu.isFeatureEnabled('strictValidation', { environment: process.env.NODE_ENV });
-  
-  const chainName = useStrictAuth ? 'userApiEndpoint' : 'processUserData';
-  
-  // Create and execute chain
-  const chain = modu.createChain(chainName);
-  const result = await chain(ctx);
-  
-  // Handle response if not already sent
-  if (!ctx.res.headersSent) {
-    if (result.error) {
-      ctx.res.status(result.error.code || 500).json({
-        error: result.error.message,
-        chain: chainName
-      });
-    } else {
-      ctx.res.json({
-        success: true,
-        data: result.savedRecord || result.processedData,
-        chain: chainName
-      });
-    }
-  }
-  
-  return result;
-});
-
-// Admin endpoint with strict authentication
-modu.when.http('/api/admin/users', ['POST'], async (ctx) => {
-  const chain = modu.createChain('strictAuth');
-  const authResult = await chain(ctx);
-  
-  if (authResult.error) {
-    ctx.res.status(authResult.error.code || 500).json({
-      error: authResult.error.message
-    });
-    return authResult;
-  }
-  
-  // Continue with data processing
-  const processChain = modu.createChain('processUserData');
-  const result = await processChain(ctx);
-  
-  ctx.res.json({
-    success: true,
-    data: result.savedRecord,
-    adminAccess: true
-  });
-  
-  return result;
-});
-
-// Statistics endpoint
-modu.when.http('/api/stats', ['GET'], async (ctx) => {
-  const stats = modu.getStatistics();
-  
-  ctx.res.json({
-    pipelineStatistics: stats,
-    featureFlags: {
-      strictValidation: modu.isFeatureEnabled('strictValidation'),
-      detailedLogging: modu.isFeatureEnabled('detailedLogging'),
-      betaFeatures: modu.isFeatureEnabled('betaFeatures')
-    },
-    environment: process.env.NODE_ENV || 'development'
-  });
-  
-  return ctx;
-});
-
-// ============================================================================
-// 6. DEMONSTRATE DYNAMIC PIPELINE COMPOSITION
-// ============================================================================
-
-// Example of runtime pipeline composition
-async function demonstrateDynamicComposition() {
-  console.log('\n=== Dynamic Pipeline Composition Demo ===');
-  
-  // Create a custom pipeline by combining configurations
-  const customPipeline = async (ctx) => {
-    // Use basic auth first
-    const authPipeline = modu.createPipeline('basicAuth');
-    ctx = await authPipeline(ctx);
-    
-    if (ctx.error) {
-      return ctx;
-    }
-    
-    // Then process data
-    const dataPipeline = modu.createPipeline('processUserData');
-    ctx = await dataPipeline(ctx);
-    
-    return ctx;
-  };
-  
-  // Test the custom pipeline
-  const testCtx = {
-    headers: { authorization: 'Bearer valid-token' },
-    body: { name: 'Test User', email: 'test@example.com' }
-  };
-  
-  const result = await customPipeline(testCtx);
-  console.log('Custom pipeline result:', result.savedRecord);
-  
-  // Show cache statistics
-  console.log('Cache statistics:', modu.getStatistics());
-}
-
-// ============================================================================
-// 7. START SERVER AND DEMO
+// 5. START SERVER
 // ============================================================================
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, async () => {
-  console.log(`\n🚀 ModuLink Hybrid Pattern Demo Server running on port ${PORT}`);
-  console.log('\n📋 Available endpoints:');
-  console.log('  POST /api/users       - Create user (dynamic pipeline selection)');
-  console.log('  POST /api/admin/users - Create user (admin access required)');
-  console.log('  GET  /api/stats       - View pipeline statistics');
-  
-  console.log('\n🔧 Feature flags:');
-  console.log(`  strictValidation: ${modu.isFeatureEnabled('strictValidation')}`);
-  console.log(`  detailedLogging: ${modu.isFeatureEnabled('detailedLogging')}`);
-  console.log(`  betaFeatures: ${modu.isFeatureEnabled('betaFeatures')}`);
-  
-  console.log(`\n🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  
-  // Run the dynamic composition demo
-  await demonstrateDynamicComposition();
-  
-  console.log('\n💡 Try these curl commands:');
-  console.log(`
-# Create user (will use appropriate pipeline based on environment)
-curl -X POST http://localhost:${PORT}/api/users \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer valid-token" \\
-  -d '{"name": "John Doe", "email": "john@example.com"}'
-
-# Try admin endpoint (requires valid token)
-curl -X POST http://localhost:${PORT}/api/admin/users \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer valid-token" \\
-  -d '{"name": "Admin User", "email": "admin@example.com"}'
-
-# View statistics
-curl http://localhost:${PORT}/api/stats
-  `);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log('\nAvailable endpoints:');
+  console.log('POST /api/users - Create user (requires auth)');
+  console.log('GET /api/data/:id - Get data (public)');
+  console.log('POST /api/admin - Admin actions (requires admin role)');
+  console.log('POST /api/enhanced - Enhanced processing with feature flags');
+  console.log('\nExample requests:');
+  console.log('curl -X POST http://localhost:3000/api/users \\');
+  console.log('  -H "Content-Type: application/json" \\');
+  console.log('  -H "Authorization: Bearer valid-token" \\');
+  console.log('  -d \'{"name": "John Doe"}\'');
 });
 
 export default app;

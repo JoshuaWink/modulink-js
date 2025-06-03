@@ -2,7 +2,7 @@
 
 ## Overview
 
-ModuLink-JS has evolved from a pipeline-based pattern to a **Chain & Function** approach for better modularity and clarity. **Functions are the links of the chain**, and **middleware acts as fittings between the links**.
+ModuLink-JS has evolved from a pipeline-based pattern to a **Chain & Function** approach for better modularity and clarity. **Functions are the links of the chain**, and **middleware acts as observers between the links** for logging, listening, and monitoring.
 
 ## Version History
 
@@ -29,6 +29,15 @@ ModuLink-JS has evolved from a pipeline-based pattern to a **Chain & Function** 
 ## Version History
 
 ## Version 2.1.0 - 2025-05-30
+
+- Migration completion milestone
+- ES modules conversion finalized
+- Chain API implementation complete
+- All tests passing (35/35)
+
+## Version History
+
+## Version 3.0.0 - 2025-06-03
 
 - Migration completion milestone
 - ES modules conversion finalized
