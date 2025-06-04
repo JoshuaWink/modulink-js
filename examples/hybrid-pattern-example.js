@@ -1,18 +1,19 @@
 /**
- * ModuLink-JS Pattern Example
+ * ModuLink-JS Template System Example
  * 
- * This example demonstrates the ModuLink system:
- * - Function Composition: Chaining links using chain()
- * - Context-based Processing: Using typed contexts for different triggers
- * - Core Types: Ctx, Link, Chain, Trigger, Middleware
- * - Error Handling: Using catchErrors utility
- * - Conditional Execution: Using when() for flow control
+ * This example demonstrates the Template System (Minimalist) approach:
+ * - User implements Express integration using connect() system
+ * - ModuLink provides patterns and utilities through ConnectBuilder
+ * - Function Composition: Chaining links using createChain()
+ * - Context-based Processing: Using typed contexts
+ * - Error Handling and Logging utilities
  * 
  * Functions are the links of the chain, composition creates the pipeline.
+ * Users implement all integration logic themselves.
  */
 
 import express from 'express';
-import { createModulink, createHttpContext, chain, when, errorHandler, validate } from '../index.js';
+import { createModulink, createHttpContext, when, errorHandler, validate } from '../index.js';
 
 const app = express();
 const modu = createModulink();
