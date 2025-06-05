@@ -9,7 +9,7 @@
 
 import { jest } from '@jest/globals';
 import { 
-  createModulink,
+  createModuLink,
   chain,
   logging, 
   performanceTracker, 
@@ -27,7 +27,7 @@ describe('Clean Chain Architecture', () => {
   let modu;
   
   beforeEach(() => {
-    modu = createModulink();
+    modu = createModuLink();
   });
   
   // Test helper functions
@@ -51,7 +51,7 @@ describe('Clean Chain Architecture', () => {
   describe('Clean Chain Execution', () => {
     
     test('should execute simple chain without metadata bloat', async () => {
-      const simpleChain = modu.createChain(addOne, addTwo);
+      const simpleChain = chain(addOne, addTwo);
       
       const result = await simpleChain({ value: 0 });
       
@@ -62,7 +62,7 @@ describe('Clean Chain Architecture', () => {
     });
     
     test('should handle async links correctly', async () => {
-      const asyncChain = modu.createChain(addOne, asyncAdd, addTwo);
+      const asyncChain = chain(addOne, asyncAdd, addTwo);
       
       const result = await asyncChain({ value: 0 });
       
@@ -71,7 +71,7 @@ describe('Clean Chain Architecture', () => {
     });
     
     test('should stop execution on error', async () => {
-      const errorChain = modu.createChain(addOne, errorLink, addTwo);
+      const errorChain = chain(addOne, errorLink, addTwo);
       
       const result = await errorChain({ value: 0 });
       
@@ -81,7 +81,7 @@ describe('Clean Chain Architecture', () => {
     });
     
     test('should maintain context through chain', async () => {
-      const contextChain = modu.createChain(
+      const contextChain = chain(
         (ctx) => ({ ...ctx, step1: true }),
         (ctx) => ({ ...ctx, step2: true }),
         (ctx) => ({ ...ctx, step3: true })

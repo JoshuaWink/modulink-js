@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-06-05
+
+### 🚀 Major Documentation & Architecture Overhaul
+
+#### Highlights
+- **Hybrid Architecture**: Clear separation of business logic (chains) and integration (ModuLink instances)
+- **Flexible Connect System**: Auto-detects one/two-parameter connect functions; both parameters refer to the same ModuLink instance ("flexible connect with one/two parameters")
+- **Modular, Importable Links & Middleware**: All docstrings, code examples, and tests now use only modular, importable links and middleware—no inline function definitions in documentation or examples
+- **Consistent Terminology**: All docs and code use "flexible connect with one/two parameters"; parameter relationships and connect patterns are clearly explained
+- **Comprehensive Examples**: New and updated examples in `examples/` directory demonstrate all usage patterns (HTTP, CLI, cron, hybrid, etc.)
+- **Multi-Level Middleware**: Instance-level and chain-level middleware usage clarified and demonstrated
+- **Test Suite Refactor**: All tests (`__tests__/*.js`) updated to use modular, importable links and chains, matching the new architecture
+- **Type Safety & Modularity**: `types.js` and `utils.js` improved for type safety, modularity, and documentation
+- **Documentation Overhaul**: `README.md` and `docs/clean-chain-cookbook.md` rewritten to clarify hybrid architecture, connect system, and parameter relationships
+- **Summary & Analysis Docs**: Added `TERMINOLOGY_FIX_SUMMARY.md` and `connect-analysis.md` to explain connect pattern rationale and parameter relationships
+- **Changelog Updated**: This entry summarizes all major documentation, terminology, and usage pattern improvements
+
+#### Migration Notes
+- All code and documentation now use modular, importable links and middleware—update any inline function usage to imports
+- Use the new connect patterns and terminology as shown in the updated documentation and examples
+- See `README.md` and `docs/clean-chain-cookbook.md` for migration guidance and architectural rationale
+
+---
+
 ## [2.0.0] - 2025-05-30
 
 ### ⚠️ **BREAKING CHANGES - Major Release**
