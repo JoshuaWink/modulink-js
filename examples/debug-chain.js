@@ -1,4 +1,4 @@
-import { chain } from './modulink/simple-chain.js';
+import { chain } from './simple-chain.js';
 
 async function debugChain() {
   console.log('=== Testing Basic Chain ===');

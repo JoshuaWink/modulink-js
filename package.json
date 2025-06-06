@@ -34,7 +34,10 @@
     "release": "node scripts/release.js",
     "release:patch": "node scripts/release.js patch",
     "release:minor": "node scripts/release.js minor",
-    "release:major": "node scripts/release.js major"
+    "release:major": "node scripts/release.js major",
+    "ci": "npm install",
+    "clean": "rm -rf node_modules && rm -rf dist && rm -rf coverage && rm -rf .cache && rm -rf .nyc_output",
+    "prepublishOnly": "npm run clean && npm run test:verbose"
   },
   "dependencies": {
     "commander": "^9.4.0",
